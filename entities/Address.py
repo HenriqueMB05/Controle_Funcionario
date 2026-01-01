@@ -1,5 +1,6 @@
 from Controle_Funcionario.utils.ReadPdf import ReadPdf
 from Controle_Funcionario.entities.UF import UF
+from Controle_Funcionario.entities.Public_Space import Public_Space
 from dataclasses import dataclass
 from typing import Optional, Final
 import re
@@ -18,18 +19,65 @@ class Address:
     town: str = ""
     uf: Optional[UF] =  None
 
+    complement_key = ("CASA", "CS", "QD", "LT","ST", "AP","APT", "APTO")
+
+
     reader = ReadPdf("ficha.pdf")
 
-    def find_UF(self, text: str):
-        uf = UF
-        part = [p.strip() for p in text]
+    def find_number(self, key: str):
+        if not key:
+            return None
+        
+        key = [k.strip() for k in key]
+        
+        for k in key:
+            if k.isdigit():
+                return k
+        return None
+    
 
-        for p in part:
+    def find_complement(self, key:str):
+        if not key:
+            return None
+        
+        key = [k.strip() for k in key]
+
+        for p in key:
+            p.upper()
+            for k in self.complement_key:
+                if p.startswith(k):
+                    return p
+            
+        return None
+        
+
+    def find_UF(self, key: str):
+        uf = UF
+
+        key = [k.strip() for k in key]
+
+        for k in key:
             try:
-                return uf[p].name
+                return uf[k].name
             except KeyError:
                 continue
         raise ValueError("UF NÃO ENCONTRADO")
+
+
+    def find_public_space(self, key: str):
+        PS = Public_Space
+        key = key[0].split()
+        key = [k.upper() for k in key]
+        var = ""
+
+        for k in key:
+            for j in key:
+                if j not in PS:
+                    var += j+" "
+            return PS[k.upper()].value, var.strip()
+        
+        return None
+
 
     def find_address(self):
         part = self.reader.find_lines("Residência")
@@ -38,18 +86,10 @@ class Address:
         match = re.search(r"\d{5}-?\d{3}", part)
         self.cep = match.group() if match else None
         address = part.split(",")
-        public_space = address[0].split()
-        self.public_space = ""
-        for i, k in enumerate(public_space):
-            if i == 0:
-                self.type_public_space = k
-            else:
-                self.public_space += f"{k} "
-        self.public_space.strip()
+        self.type_public_space, self.public_space = self.find_public_space(address)
         self.district = address[3].strip()
-        number = address[1].strip()
-        self.number = number
-        self.complement = address[2].strip()
+        self.number = self.find_number(address)
+        self.complement = self.find_complement(address)
         self.town = address[4].strip()
         self.uf = self.find_UF(address)
     
